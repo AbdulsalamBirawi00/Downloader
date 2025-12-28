@@ -63,7 +63,8 @@ git push -u origin main
 3. New Web Service → Connect GitHub
 4. Select your repo
 5. Settings:
-   - Start Command: `python3 bot.py`
+   - **Environment**: Docker
+   - **Dockerfile Path**: `./Dockerfile`
    - Add Environment Variable:
      - `TELEGRAM_BOT_TOKEN` = your token
 6. Deploy!

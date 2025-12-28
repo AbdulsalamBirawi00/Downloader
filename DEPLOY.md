@@ -42,16 +42,15 @@ git push -u origin main
 4. Select your `telegram-video-bot` repository
 5. Configure:
    - **Name**: `telegram-video-bot` (or anything you like)
-   - **Environment**: `Python 3`
-   - **Build Command**: `apt-get update && apt-get install -y ffmpeg` (for audio extraction)
-   - **Start Command**: `python3 bot.py`
+   - **Environment**: **Docker** (Important!)
+   - **Dockerfile Path**: `./Dockerfile`
    - **Plan**: Select **"Free"**
 6. Click **"Advanced"** and add Environment Variable:
    - **Key**: `TELEGRAM_BOT_TOKEN`
    - **Value**: Paste your bot token from Step 1
 7. Click **"Create Web Service"**
 
-**Note:** The build command installs ffmpeg for audio extraction. Without it, the bot will still work but only send videos.
+**Note:** The Dockerfile automatically installs ffmpeg for audio extraction. The bot includes full audio support!
 
 ### Step 4: Wait for Deployment
 

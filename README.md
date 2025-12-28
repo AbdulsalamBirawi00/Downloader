@@ -104,13 +104,14 @@ Render offers free tier hosting that's perfect for this bot.
 2. Create a new **Web Service**
 3. Connect your GitHub repository (you'll need to push this code to GitHub first)
 4. Configure:
-   - **Environment**: Python 3
-   - **Build Command**: `pip install -r requirements.txt` (or leave empty)
-   - **Start Command**: `python3 bot.py`
+   - **Environment**: **Docker** (Use Docker, not Python!)
+   - **Dockerfile Path**: `./Dockerfile`
 5. Add environment variable:
    - Key: `TELEGRAM_BOT_TOKEN`
    - Value: Your bot token
 6. Deploy!
+
+**Why Docker?** The Dockerfile automatically installs ffmpeg for audio extraction. Using Docker ensures all dependencies are properly installed.
 
 **Note:** Render free tier may sleep after inactivity. The bot will wake up when Telegram sends an update.
 
