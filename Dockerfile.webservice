@@ -1,0 +1,31 @@
+# Dockerfile for Render Web Service (includes HTTP server for health checks)
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install ffmpeg for audio extraction
+RUN apt-get update && \
+    apt-get install -y ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy bot files
+COPY bot_with_server.py bot.py
+COPY downloaders.py .
+
+# Create a non-root user to run the bot
+RUN useradd -m -u 1000 botuser && \
+    chown -R botuser:botuser /app
+
+USER botuser
+
+# Expose port for Render health checks
+EXPOSE 10000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:10000/health')"
+
+# Run the bot
+CMD ["python3", "-u", "bot.py"]
