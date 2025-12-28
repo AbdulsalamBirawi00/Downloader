@@ -1,0 +1,11 @@
+# Render.com configuration file for easy deployment
+services:
+  - type: web
+    name: telegram-video-bot
+    env: python
+    buildCommand: "apt-get update && apt-get install -y ffmpeg"
+    startCommand: python3 bot.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+    plan: free

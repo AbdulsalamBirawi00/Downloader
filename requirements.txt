@@ -1,0 +1,3 @@
+# No external dependencies required!
+# This bot uses only Python standard library (urllib, json, ssl, etc.)
+# Python 3.7+ required
