@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Telegram Video Downloader Bot
+Telegram Video Downloader Bot (with HTTP server for Render Web Service)
 Downloads videos from Instagram, YouTube, and Facebook using only Python standard library
 """
 
@@ -14,7 +14,35 @@ import time
 import ssl
 import subprocess
 import tempfile
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from threading import Thread
 from downloaders import download_instagram, download_youtube, download_facebook, extract_audio
+
+
+# Simple HTTP server for health checks
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/' or self.path == '/health':
+            self.send_response(200)
+            self.send_header('Content-type', 'text/plain')
+            self.end_headers()
+            self.wfile.write(b'Bot is running!')
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        # Suppress HTTP server logs
+        pass
+
+
+def start_http_server():
+    """Start HTTP server in background thread"""
+    port = int(os.environ.get('PORT', 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    print(f"HTTP server listening on port {port}")
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
 
 
 class TelegramBot:
@@ -359,6 +387,9 @@ def main():
         print("Error: TELEGRAM_BOT_TOKEN environment variable not set!")
         print("Usage: export TELEGRAM_BOT_TOKEN='your_bot_token_here'")
         sys.exit(1)
+
+    # Start HTTP server for health checks (needed for Render Web Service)
+    start_http_server()
 
     # Create and start bot
     bot = TelegramBot(token)
