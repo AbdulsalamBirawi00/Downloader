@@ -4,11 +4,17 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install ffmpeg for audio extraction
+# Install system dependencies (ffmpeg for audio extraction)
 RUN apt-get update && \
     apt-get install -y ffmpeg && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy bot files
 COPY bot.py .
@@ -20,10 +26,10 @@ RUN useradd -m -u 1000 botuser && \
 
 USER botuser
 
-# Expose port (Render requires this even though we don't use it for the bot)
+# Expose port for health checks
 EXPOSE 10000
 
-# Health check (optional but recommended for Render)
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python3 -c "import sys; sys.exit(0)"
 
