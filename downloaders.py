@@ -19,7 +19,7 @@ def download_video_ytdlp(url):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = os.path.join(temp_dir, 'video.%(ext)s')
 
-            # yt-dlp command
+            # yt-dlp command with anti-bot measures
             cmd = [
                 'yt-dlp',
                 '--no-warnings',
@@ -28,7 +28,15 @@ def download_video_ytdlp(url):
                 '--output', output_path,
                 '--max-filesize', '50M',  # Telegram limit
                 '--no-check-certificate',
-                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                # Anti-bot measures for YouTube
+                '--extractor-args', 'youtube:player_client=android,web',
+                '--extractor-args', 'youtube:skip=hls,dash',
+                # Better user agent
+                '--user-agent', 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36',
+                # Age gate bypass
+                '--age-limit', '100',
+                # Add referer
+                '--add-header', 'Referer:https://www.google.com/',
                 url
             ]
 
@@ -182,7 +190,7 @@ def download_audio_directly(url):
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = os.path.join(temp_dir, 'audio.%(ext)s')
 
-            # yt-dlp command for audio
+            # yt-dlp command for audio with anti-bot measures
             cmd = [
                 'yt-dlp',
                 '--no-warnings',
@@ -193,7 +201,15 @@ def download_audio_directly(url):
                 '--output', output_path,
                 '--max-filesize', '50M',  # Telegram limit
                 '--no-check-certificate',
-                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                # Anti-bot measures for YouTube
+                '--extractor-args', 'youtube:player_client=android,web',
+                '--extractor-args', 'youtube:skip=hls,dash',
+                # Better user agent
+                '--user-agent', 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36',
+                # Age gate bypass
+                '--age-limit', '100',
+                # Add referer
+                '--add-header', 'Referer:https://www.google.com/',
                 url
             ]
 
