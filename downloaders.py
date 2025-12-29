@@ -11,69 +11,107 @@ import json
 
 def download_video_ytdlp(url):
     """
-    Download video using yt-dlp
+    Download video using yt-dlp with multiple fallback methods
     Returns video data as bytes
     """
-    try:
-        # Create temporary directory for downloads
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, 'video.%(ext)s')
-
-            # yt-dlp command with anti-bot measures
-            cmd = [
-                'yt-dlp',
-                '--no-warnings',
-                '--no-playlist',
-                '--format', 'best[ext=mp4]/best',  # Prefer MP4 format
-                '--output', output_path,
-                '--max-filesize', '50M',  # Telegram limit
-                '--no-check-certificate',
-                # Anti-bot measures for YouTube
-                '--extractor-args', 'youtube:player_client=android,web',
+    # Try multiple extraction methods in order of success rate
+    methods = [
+        {
+            'name': 'iOS Client',
+            'args': [
+                '--extractor-args', 'youtube:player_client=ios,web',
                 '--extractor-args', 'youtube:skip=hls,dash',
-                # Better user agent
-                '--user-agent', 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36',
-                # Age gate bypass
-                '--age-limit', '100',
-                # Add referer
-                '--add-header', 'Referer:https://www.google.com/',
-                url
             ]
+        },
+        {
+            'name': 'Android Client',
+            'args': [
+                '--extractor-args', 'youtube:player_client=android,web',
+            ]
+        },
+        {
+            'name': 'Web Embed',
+            'args': [
+                '--extractor-args', 'youtube:player_client=web_embedded',
+            ]
+        },
+        {
+            'name': 'Mobile Web',
+            'args': [
+                '--extractor-args', 'youtube:player_client=mweb,web',
+            ]
+        }
+    ]
 
-            print(f"Downloading with yt-dlp: {url}")
+    last_error = None
 
-            # Run yt-dlp
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=120  # 2 minutes timeout
-            )
+    for method in methods:
+        try:
+            print(f"Trying {method['name']} method for: {url}")
 
-            if result.returncode != 0:
+            # Create temporary directory for downloads
+            with tempfile.TemporaryDirectory() as temp_dir:
+                output_path = os.path.join(temp_dir, 'video.%(ext)s')
+
+                # Base yt-dlp command
+                cmd = [
+                    'yt-dlp',
+                    '--no-warnings',
+                    '--no-playlist',
+                    '--format', 'best[ext=mp4][height<=720]/best[ext=mp4]/best',  # Limit quality to avoid bot detection
+                    '--output', output_path,
+                    '--max-filesize', '50M',  # Telegram limit
+                    '--no-check-certificate',
+                    # Better user agent
+                    '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+                    # Age gate bypass
+                    '--age-limit', '100',
+                ]
+
+                # Add method-specific arguments
+                cmd.extend(method['args'])
+                cmd.append(url)
+
+                # Run yt-dlp
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=120  # 2 minutes timeout
+                )
+
+                if result.returncode == 0:
+                    # Success! Find and read the downloaded file
+                    files = os.listdir(temp_dir)
+                    if files:
+                        video_file = os.path.join(temp_dir, files[0])
+                        with open(video_file, 'rb') as f:
+                            video_data = f.read()
+                        print(f"✅ {method['name']} succeeded! Downloaded {len(video_data)} bytes")
+                        return video_data
+
+                # This method failed, try next one
                 error_msg = result.stderr or result.stdout
-                print(f"yt-dlp error: {error_msg}")
-                raise Exception(f"Download failed: {error_msg[:200]}")
+                last_error = error_msg
+                print(f"❌ {method['name']} failed, trying next method...")
 
-            # Find the downloaded file
-            files = os.listdir(temp_dir)
-            if not files:
-                raise Exception("No file was downloaded")
+        except subprocess.TimeoutExpired:
+            last_error = "Download timed out"
+            print(f"❌ {method['name']} timed out, trying next method...")
+            continue
+        except Exception as e:
+            last_error = str(e)
+            print(f"❌ {method['name']} error: {e}, trying next method...")
+            continue
 
-            video_file = os.path.join(temp_dir, files[0])
+    # All methods failed
+    print(f"❌ All download methods failed")
 
-            # Read the video file
-            with open(video_file, 'rb') as f:
-                video_data = f.read()
-
-            print(f"Successfully downloaded {len(video_data)} bytes")
-            return video_data
-
-    except subprocess.TimeoutExpired:
-        raise Exception("Download timed out (exceeded 2 minutes)")
-    except Exception as e:
-        print(f"Download error: {e}")
-        raise
+    # Check if it's a bot detection error
+    if last_error and ('Sign in to confirm' in last_error or 'bot' in last_error.lower()):
+        raise Exception("YouTube bot detection - This video requires advanced authentication. Try a different video or use the bot later when YouTube restrictions are lighter.")
+    else:
+        raise Exception(f"Download failed after trying all methods: {last_error[:200] if last_error else 'Unknown error'}")
 
 
 def download_instagram(url):
@@ -182,71 +220,96 @@ def extract_audio(video_data, filename):
 
 def download_audio_directly(url):
     """
-    Download audio directly using yt-dlp (faster than downloading video then extracting)
+    Download audio directly using yt-dlp with multiple fallback methods
     Returns audio data as bytes
     """
-    try:
-        # Create temporary directory for downloads
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, 'audio.%(ext)s')
-
-            # yt-dlp command for audio with anti-bot measures
-            cmd = [
-                'yt-dlp',
-                '--no-warnings',
-                '--no-playlist',
-                '--extract-audio',
-                '--audio-format', 'mp3',
-                '--audio-quality', '0',  # Best quality
-                '--output', output_path,
-                '--max-filesize', '50M',  # Telegram limit
-                '--no-check-certificate',
-                # Anti-bot measures for YouTube
-                '--extractor-args', 'youtube:player_client=android,web',
-                '--extractor-args', 'youtube:skip=hls,dash',
-                # Better user agent
-                '--user-agent', 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36',
-                # Age gate bypass
-                '--age-limit', '100',
-                # Add referer
-                '--add-header', 'Referer:https://www.google.com/',
-                url
+    # Try multiple extraction methods
+    methods = [
+        {
+            'name': 'iOS Client Audio',
+            'args': [
+                '--extractor-args', 'youtube:player_client=ios,web',
             ]
+        },
+        {
+            'name': 'Android Client Audio',
+            'args': [
+                '--extractor-args', 'youtube:player_client=android,web',
+            ]
+        }
+    ]
 
-            print(f"Downloading audio with yt-dlp: {url}")
+    last_error = None
 
-            # Run yt-dlp
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=120  # 2 minutes timeout
-            )
+    for method in methods:
+        try:
+            print(f"Trying {method['name']} method for: {url}")
 
-            if result.returncode != 0:
+            # Create temporary directory for downloads
+            with tempfile.TemporaryDirectory() as temp_dir:
+                output_path = os.path.join(temp_dir, 'audio.%(ext)s')
+
+                # Base yt-dlp command for audio
+                cmd = [
+                    'yt-dlp',
+                    '--no-warnings',
+                    '--no-playlist',
+                    '--extract-audio',
+                    '--audio-format', 'mp3',
+                    '--audio-quality', '0',  # Best quality
+                    '--output', output_path,
+                    '--max-filesize', '50M',  # Telegram limit
+                    '--no-check-certificate',
+                    # Better user agent
+                    '--user-agent', 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+                    # Age gate bypass
+                    '--age-limit', '100',
+                ]
+
+                # Add method-specific arguments
+                cmd.extend(method['args'])
+                cmd.append(url)
+
+                # Run yt-dlp
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=120  # 2 minutes timeout
+                )
+
+                if result.returncode == 0:
+                    # Success! Find and read the downloaded file
+                    files = os.listdir(temp_dir)
+                    if files:
+                        audio_file = os.path.join(temp_dir, files[0])
+                        with open(audio_file, 'rb') as f:
+                            audio_data = f.read()
+                        print(f"✅ {method['name']} succeeded! Downloaded {len(audio_data)} bytes")
+                        return audio_data
+
+                # This method failed, try next one
                 error_msg = result.stderr or result.stdout
-                print(f"yt-dlp audio error: {error_msg}")
-                # Try fallback: download video then extract
-                print("Trying fallback: download video then extract audio...")
-                video_data = download_video_ytdlp(url)
-                return extract_audio(video_data, 'video.mp4')
+                last_error = error_msg
+                print(f"❌ {method['name']} failed, trying next method...")
 
-            # Find the downloaded file
-            files = os.listdir(temp_dir)
-            if not files:
-                raise Exception("No audio file was downloaded")
+        except subprocess.TimeoutExpired:
+            last_error = "Download timed out"
+            print(f"❌ {method['name']} timed out, trying next method...")
+            continue
+        except Exception as e:
+            last_error = str(e)
+            print(f"❌ {method['name']} error: {e}, trying next method...")
+            continue
 
-            audio_file = os.path.join(temp_dir, files[0])
-
-            # Read the audio file
-            with open(audio_file, 'rb') as f:
-                audio_data = f.read()
-
-            print(f"Successfully downloaded audio {len(audio_data)} bytes")
-            return audio_data
-
-    except subprocess.TimeoutExpired:
-        raise Exception("Audio download timed out (exceeded 2 minutes)")
+    # All audio methods failed, try fallback: download video then extract
+    print("All audio methods failed. Trying fallback: download video then extract audio...")
+    try:
+        video_data = download_video_ytdlp(url)
+        return extract_audio(video_data, 'video.mp4')
     except Exception as e:
-        print(f"Audio download error: {e}")
-        raise
+        # Complete failure
+        if last_error and ('Sign in to confirm' in last_error or 'bot' in last_error.lower()):
+            raise Exception("YouTube bot detection - This video requires advanced authentication. Try a different video or use the bot later.")
+        else:
+            raise Exception(f"Audio download failed: {str(e)[:200]}")
